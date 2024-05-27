@@ -1,4 +1,3 @@
-// import { BlockManager, Block, PointsProvider, OShape, LShape, TShape, ZShape } from "./block_module/block_manager.js"
 import { XY } from "./renderer/type.js";
 import { Renderer } from "./renderer/renderer.js";
 import { AbDrawable, Shape, Rect, Container } from "./renderer/drawable.js";
@@ -21,14 +20,14 @@ const binaryBlocks: Array<BinaryBlock> =
             [0, 1, 1],
         ],
         [//S
-            [0, 0, 0],
             [0, 1, 1],
             [1, 1, 0],
+            [0, 0, 0],
         ],
         [//Z
-            [0, 0, 0],
             [1, 1, 0],
             [0, 1, 1],
+            [0, 0, 0],
         ],
         [//O
             [1, 1],
@@ -53,11 +52,12 @@ class Tetris {
         size: { width: 400, height: 800 },
         scale: "1"
     };
-    private _shapeSize: number = 20;
+    private _cellSize: number = 20;
     private _startPos: { x: number, y: number } = { x: 40, y: 40 }; //시작포인트
     private _curBlock?: Container;
     private _eventListener: Array<Function> = [];
-    private _board?: Array<Array<number>>;
+    private _wall?: Container;
+
     private _lastTimestamp = 0;
     private _interval = 1000; //1초
 
@@ -76,30 +76,42 @@ class Tetris {
         canvas.height = this._canvasOptions.size.height;
         canvas.style.scale = this._canvasOptions.scale;
 
+        this._initWall()
         console.log("Tetris initialized");
     }
 
     private _initialize() {
         this._startPos = { x: this._canvasOptions.size.width / 2, y: 0 };
-
-
-
     }
 
     private _initWall(): void {
-        let x = this._canvasOptions.size.width / this._shapeSize;
-        let y = this._canvasOptions.size.height / this._shapeSize;
+        let x = this._canvasOptions.size.width / this._cellSize;
+        let y = this._canvasOptions.size.height / this._cellSize;
 
-        const wall = new Array(y).fill(0).map((value, idx) => {
-            if(idx == 0 || idx == y-1){
-                new Array(x).fill(2)
-            }else{
-                new Array(x).fill(0)
+        const binaryWall = new Array(y).fill(0).map((value, idx) => {
+            if (idx == 0 || idx == y - 1) {
+                return new Array(x).fill(2)
+            } else {
+                return new Array(x).fill(0).map((value, idx) => {
+                    if (idx == 0 || idx == x - 1) {
+                        return 1
+                    } else {
+                        return 0
+                    }
+                })
             }
         });
 
+        const container = new Container({ alias: "wall", binBlock: binaryWall, position: { x: 0, y: 0 } });
+        const posArray = this._calculatePositionWithBlock(container);
 
+        for (let i = 0; i < posArray.length; i++) {
+            const cell = new Rect({ id: "w" + i, color: "black", position: posArray[i] });
+            container.addShape(cell);
+        }
+        this._renderer.addContainer(container);
 
+        this._wall = container;
     }
 
 
@@ -119,7 +131,7 @@ class Tetris {
 
     /**
      * 
-     * @description curBlock의 binBlock을 rotate
+     * @description BinaryBlock을 rotate
      */
     private _rotateBinaryBlock(binBlock: BinaryBlock): BinaryBlock {
         const len = binBlock.length;
@@ -136,8 +148,6 @@ class Tetris {
 
     /**
      * @description 블록의 기준 좌표를 변경한다. 회전시 사용 
-     * @param block 
-     * @returns 
      */
     private _calculatePositionWithBlock(block: Container): Array<XY> {
         const binBlock = block.getProperty("binBlock");
@@ -149,8 +159,8 @@ class Tetris {
             for (let col = 0; col < binBlock[row].length; col++) {
                 if (binBlock[row][col]) {
                     const fixedPos = {
-                        x: blockPos.x + col * this._shapeSize,
-                        y: blockPos.y + row * this._shapeSize
+                        x: blockPos.x + col * this._cellSize,
+                        y: blockPos.y + row * this._cellSize
                     };
                     fixedPosArray.push(fixedPos);
                 }
@@ -159,9 +169,6 @@ class Tetris {
         return fixedPosArray;
     }
 
-    /**
-  * @todo 현재 블록 좌표, rect 기본사이즈 가져와서 계산해서 curblock에 픽셀좌표 셋
-  */
     private _rotateBlock() {
         const curBlock = this._curBlock!;
         const curBinBlock = curBlock.getProperty("binBlock");
@@ -172,20 +179,18 @@ class Tetris {
         const childrens = curBlock.getChildrens();
 
         for (let i = 0; i < fixedPosArray.length; i++) {
-            let shape = childrens[i];
-            shape.setProperty("position", fixedPosArray[i]);
-            shape.rotate({
-                x: blockPos + this._shapeSize * curBinBlock.length / 2,
-                y: blockPos + this._shapeSize * curBinBlock.length / 2
+            let cell = childrens[i];
+            cell.setProperty("position", fixedPosArray[i]);
+            cell.rotate({
+                x: blockPos + this._cellSize * curBinBlock.length / 2,
+                y: blockPos + this._cellSize * curBinBlock.length / 2
             });
         }
     }
 
     private _randomBinaryBlock(): BinaryBlock {
-        let max = binaryBlocks.length - 1; //나중에 6으로 변경 
-        let min = 0;
-        min = Math.ceil(min);
-        max = Math.floor(max);
+        const min = Math.ceil(0);
+        const max = Math.floor(binaryBlocks.length - 1);
         const reandumInt = Math.floor(Math.random() * (max - min + 1)) + min;
         return binaryBlocks[reandumInt];
     }
@@ -194,16 +199,16 @@ class Tetris {
         const props: Record<string, any> = {};
         const binBlock = this._randomBinaryBlock();
         props["binBlock"] = binBlock;
-        const fixePos = { x: this._startPos.x - this._shapeSize * binBlock.length / 2, y: this._startPos.y }
+        const fixePos = { x: this._startPos.x - this._cellSize * binBlock.length / 2, y: this._startPos.y + this._cellSize }
         props["position"] = fixePos;
 
         const block = new Container(props);
         const posArray = this._calculatePositionWithBlock(block);
 
         for (let i = 0; i < posArray.length; i++) {
-            const shape = new Rect({ id: "s" + i });
-            shape.setProperty("position", posArray[i]);
-            block.addShape(shape);
+            const cell = new Rect({ id: "s" + i });
+            cell.setProperty("position", posArray[i]);
+            block.addShape(cell);
         }
 
         this._renderer.addContainer(block);
@@ -216,14 +221,14 @@ class Tetris {
         this._curBlock?.getChildrens().forEach(children => {
             let pos = children.getProperty("position");
             children.setProperty("position", {
-                x: pos.x + this._shapeSize * step.x,
-                y: pos.y + this._shapeSize * step.y
+                x: pos.x + this._cellSize * step.x,
+                y: pos.y + this._cellSize * step.y
             });
         })
 
         this._curBlock?.setProperty("position", {
-            x: blockPos.x + this._shapeSize * step.x,
-            y: blockPos.y + this._shapeSize * step.y
+            x: blockPos.x + this._cellSize * step.x,
+            y: blockPos.y + this._cellSize * step.y
         })
     }
 
@@ -277,6 +282,7 @@ class Tetris {
                 case "ArrowLeft": this._stepBy({ x: -1, y: 0 }); break;
                 case "ArrowDown": this._stepBy({ x: 0, y: 1 }); break;
                 case "ArrowUp": this._rotateBlock(); break;
+                case "Space": console.log("space"); break;
             }
         })
     }
