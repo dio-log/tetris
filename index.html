@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* height: 100vh; */
+        }
+    </style>
+</head>
+
+<body>
+    <h1>테트리스</h1>
+    <div class="center">
+        <button id="startBtn" style="margin-bottom: 50;">게임시작</button>
+    </div>
+    <div class="center">
+        <canvas id="canvas" style="border: 1px solid black; ">
+        </canvas>
+    </div>
+    <!-- <script src = "./dist/bundle.js"></script> -->
+    <script type="module">
+        import { Tetris } from "./tetris.js"
+        // const _Tetris = Tetris.Tetris;
+
+        const tetris = new Tetris("canvas");
+
+        document.getElementById("startBtn").addEventListener("click", (e) => {
+
+            tetris.start();
+        })
+
+
+
+    </script>
+</body>
+
+</html>
